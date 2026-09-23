@@ -1,6 +1,6 @@
 // src/views/HomeView.js
-import { CHARACTERS } from '../utils/constants.js';
-import { saveSelectedCharacter } from '../services/storageService.js';
+import { CHARACTERS } from '../utils/constans.js';
+import { saveSelectedCharacter } from '../services/storageServices.js';
 
 export function renderHomeView(container, navigateTo) {
   container.innerHTML = `

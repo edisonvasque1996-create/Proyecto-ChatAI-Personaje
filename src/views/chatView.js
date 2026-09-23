@@ -1,7 +1,7 @@
 // src/views/ChatView.js
-import { CHARACTERS } from '../utils/constants.js';
-import { sendChatMessage } from '../services/apiService.js';
-import { loadChatHistory, saveChatHistory, clearChatHistory, loadSelectedCharacter } from '../services/storageService.js';
+import { CHARACTERS } from '../utils/constans.js';
+import { sendChatMessage } from '../services/apiServices.js';
+import { loadChatHistory, saveChatHistory, clearChatHistory, loadSelectedCharacter } from '../services/storageServices.js';
 import { getCurrentTimestamp, escapeHTML } from '../utils/formatters.js';
 
 export function renderChatView(container) {
@@ -61,6 +61,7 @@ export function renderChatView(container) {
   const typingIndicator = container.querySelector('#typing-indicator');
   const clearBtn = container.querySelector('#clear-history-btn');
   const sendBtn = container.querySelector('#send-btn');
+  let requestController = null;
 
   // Scroll automático al fondo
   function scrollToBottom() {
@@ -85,6 +86,7 @@ export function renderChatView(container) {
   // Limpiar historial
   clearBtn.addEventListener('click', () => {
     if (confirm(`¿Estas seguro de borrar la conversación con ${character.name}?`)) {
+      requestController?.abort();
       clearChatHistory(activeCharId);
       renderChatView(container);
     }
@@ -114,6 +116,7 @@ export function renderChatView(container) {
     chatInput.value = '';
     chatInput.disabled = true;
     sendBtn.disabled = true;
+    requestController = new AbortController();
     scrollToBottom();
 
     // Mostrar indicador de escritura
@@ -122,7 +125,9 @@ export function renderChatView(container) {
 
     try {
       // Llamada a la API mediante apiService
-      const botReply = await sendChatMessage(userText, character.systemPrompt, history.slice(0, -1));
+      const botReply = await sendChatMessage(userText, character.systemPrompt, history.slice(0, -1), {
+        signal: requestController.signal
+      });
       const botTimestamp = getCurrentTimestamp();
 
       history.push({ role: 'assistant', content: botReply, timestamp: botTimestamp });
@@ -144,6 +149,7 @@ export function renderChatView(container) {
 
       scrollToBottom();
     } catch (error) {
+      if (error.name === 'AbortError') return;
       typingIndicator.classList.add('hidden');
       messagesContainer.innerHTML += `
         <div class="message error-msg">
@@ -154,6 +160,7 @@ export function renderChatView(container) {
       `;
       scrollToBottom();
     } finally {
+      requestController = null;
       chatInput.disabled = false;
       sendBtn.disabled = false;
       chatInput.focus();

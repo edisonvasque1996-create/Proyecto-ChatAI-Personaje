@@ -2,7 +2,7 @@
 import { renderHomeView } from './views/HomeView.js';
 import { renderChatView } from './views/ChatView.js';
 import { renderAboutView } from './views/AboutView.js';
-import { ROUTES } from './utils/constants.js';
+import { ROUTES } from './utils/constans.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const appContainer = document.getElementById('app');
@@ -27,21 +27,29 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Función de Enrutamiento SPA
+  function normalizePath(path) {
+    const pathname = path.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+    return pathname === '/' ? ROUTES.HOME : pathname;
+  }
+
   function router(path) {
+    const normalizedPath = normalizePath(path);
+    const currentRoute = Object.values(ROUTES).includes(normalizedPath)
+      ? normalizedPath
+      : ROUTES.HOME;
     appContainer.innerHTML = '';
     
     // Actualizar clases activas en la barra de navegación
     document.querySelectorAll('.nav-link').forEach(link => {
-      if (link.getAttribute('href') === path) {
+      if (normalizePath(link.getAttribute('href')) === currentRoute) {
         link.classList.add('active');
       } else {
         link.classList.remove('active');
       }
     });
 
-    switch (path) {
+    switch (currentRoute) {
       case ROUTES.HOME:
-      case '/':
         renderHomeView(appContainer, navigateTo);
         break;
       case ROUTES.CHAT:
@@ -54,12 +62,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHomeView(appContainer, navigateTo);
         break;
     }
+
+    if (normalizedPath !== currentRoute) window.history.replaceState({}, '', currentRoute);
   }
 
   // Navegación con History API
   function navigateTo(path) {
-    window.history.pushState({}, '', path);
-    router(path);
+    const nextPath = normalizePath(path);
+    if (normalizePath(window.location.pathname) === nextPath) return;
+    window.history.pushState({}, '', nextPath);
+    router(nextPath);
   }
 
   // Interceptar clics en enlaces de navegación
@@ -77,6 +89,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Ruta inicial al cargar la página
-  const initialPath = window.location.pathname === '/' ? ROUTES.HOME : window.location.pathname;
-  router(initialPath);
+  router(window.location.pathname);
 });

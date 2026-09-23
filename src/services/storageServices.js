@@ -1,6 +1,31 @@
 // src/services/storageService.js
 
 const STORAGE_PREFIX = 'one_piece_chat_';
+const MAX_HISTORY_MESSAGES = 100;
+
+function getStorage() {
+  return typeof localStorage === 'undefined' ? null : localStorage;
+}
+
+function isValidMessage(message) {
+  return message
+    && (message.role === 'user' || message.role === 'assistant')
+    && typeof message.content === 'string'
+    && message.content.trim().length > 0;
+}
+
+function normalizeHistory(history) {
+  if (!Array.isArray(history)) return [];
+
+  return history
+    .filter(isValidMessage)
+    .map(message => ({
+      role: message.role,
+      content: message.content.trim(),
+      ...(typeof message.timestamp === 'string' ? { timestamp: message.timestamp } : {})
+    }))
+    .slice(-MAX_HISTORY_MESSAGES);
+}
 
 /**
  * Guarda el historial de chat para un personaje específico en localStorage.
@@ -9,9 +34,13 @@ const STORAGE_PREFIX = 'one_piece_chat_';
  */
 export function saveChatHistory(characterId, history) {
   try {
-    localStorage.setItem(`${STORAGE_PREFIX}${characterId}`, JSON.stringify(history));
+    const storage = getStorage();
+    if (!storage || typeof characterId !== 'string' || !characterId.trim()) return false;
+    storage.setItem(`${STORAGE_PREFIX}${characterId}`, JSON.stringify(normalizeHistory(history)));
+    return true;
   } catch (error) {
     console.error('Error guardando en localStorage:', error);
+    return false;
   }
 }
 
@@ -22,10 +51,13 @@ export function saveChatHistory(characterId, history) {
  */
 export function loadChatHistory(characterId) {
   try {
-    const data = localStorage.getItem(`${STORAGE_PREFIX}${characterId}`);
-    return data ? JSON.parse(data) : [];
+    const storage = getStorage();
+    if (!storage || typeof characterId !== 'string' || !characterId.trim()) return [];
+    const data = storage.getItem(`${STORAGE_PREFIX}${characterId}`);
+    return data ? normalizeHistory(JSON.parse(data)) : [];
   } catch (error) {
     console.error('Error leyendo localStorage:', error);
+    if (typeof characterId === 'string') getStorage()?.removeItem(`${STORAGE_PREFIX}${characterId}`);
     return [];
   }
 }
@@ -36,7 +68,7 @@ export function loadChatHistory(characterId) {
  */
 export function clearChatHistory(characterId) {
   try {
-    localStorage.removeItem(`${STORAGE_PREFIX}${characterId}`);
+    getStorage()?.removeItem(`${STORAGE_PREFIX}${characterId}`);
   } catch (error) {
     console.error('Error limpiando localStorage:', error);
   }
@@ -48,9 +80,13 @@ export function clearChatHistory(characterId) {
  */
 export function saveSelectedCharacter(characterId) {
   try {
-    localStorage.setItem(`${STORAGE_PREFIX}active`, characterId);
+    const storage = getStorage();
+    if (!storage || typeof characterId !== 'string' || !characterId.trim()) return false;
+    storage.setItem(`${STORAGE_PREFIX}active`, characterId);
+    return true;
   } catch (error) {
     console.error('Error guardando personaje activo:', error);
+    return false;
   }
 }
 
@@ -60,7 +96,7 @@ export function saveSelectedCharacter(characterId) {
  */
 export function loadSelectedCharacter() {
   try {
-    return localStorage.getItem(`${STORAGE_PREFIX}active`) || 'luffy';
+    return getStorage()?.getItem(`${STORAGE_PREFIX}active`) || 'luffy';
   } catch (error) {
     return 'luffy';
   }

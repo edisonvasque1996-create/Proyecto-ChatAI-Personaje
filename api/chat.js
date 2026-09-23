@@ -21,7 +21,15 @@ export default async function handler(req, res) {
     // Transformamos el historial al formato que espera la API de Gemini (Google Generative Language)
     // role: 'user' o 'model'
     const validHistory = Array.isArray(history)
-      ? history.filter(item => item && typeof item.content === 'string').slice(-20)
+      ? history
+        .filter(item => (
+          item
+          && (item.role === 'user' || item.role === 'assistant')
+          && typeof item.content === 'string'
+          && item.content.trim().length > 0
+        ))
+        .map(item => ({ role: item.role, content: item.content.trim().slice(0, 4000) }))
+        .slice(-20)
       : [];
 
     const contents = [
@@ -58,7 +66,12 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      let errorData = {};
+      try {
+        errorData = await response.json();
+      } catch {
+        // Mantener un mensaje estable cuando el proveedor no devuelve JSON.
+      }
       throw new Error(errorData.error?.message || 'Error al comunicarse con la API de Gemini');
     }
 

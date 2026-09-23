@@ -7,7 +7,7 @@
  * @param {Array} history - Historial previo de la conversación [{ role, content }].
  * @returns {Promise<string>} - La respuesta generada por la IA.
  */
-export async function sendChatMessage(message, systemPrompt, history = []) {
+export async function sendChatMessage(message, systemPrompt, history = [], options = {}) {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -18,13 +18,24 @@ export async function sendChatMessage(message, systemPrompt, history = []) {
         message,
         systemPrompt,
         history
-      })
+      }),
+      signal: options.signal
     });
 
-    const data = await response.json();
+    const rawData = await response.text();
+    let data = {};
+    try {
+      data = rawData ? JSON.parse(rawData) : {};
+    } catch {
+      data = {};
+    }
 
     if (!response.ok) {
       throw new Error(data.error || 'Error al conectar con el servidor de IA.');
+    }
+
+    if (typeof data.reply !== 'string' || !data.reply.trim()) {
+      throw new Error('El servidor no devolvió una respuesta válida.');
     }
 
     return data.reply;
