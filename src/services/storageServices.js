@@ -2,6 +2,7 @@
 
 const STORAGE_PREFIX = 'one_piece_chat_';
 const MAX_HISTORY_MESSAGES = 100;
+const FAVORITES_KEY = `${STORAGE_PREFIX}favorites`;
 
 function getStorage() {
   return typeof localStorage === 'undefined' ? null : localStorage;
@@ -100,4 +101,32 @@ export function loadSelectedCharacter() {
   } catch (error) {
     return 'luffy';
   }
+}
+
+// Los favoritos viven en una sola entrada para poder consultarlos sin recorrer todos los chats.
+export function loadFavoriteCharacters() {
+  try {
+    const data = getStorage()?.getItem(FAVORITES_KEY);
+    return data ? JSON.parse(data).filter(id => typeof id === 'string') : [];
+  } catch (error) {
+    console.error('Error leyendo favoritos:', error);
+    return [];
+  }
+}
+
+export function toggleFavoriteCharacter(characterId) {
+  if (typeof characterId !== 'string' || !characterId.trim()) return [];
+
+  const favorites = loadFavoriteCharacters();
+  const nextFavorites = favorites.includes(characterId)
+    ? favorites.filter(id => id !== characterId)
+    : [...favorites, characterId];
+
+  try {
+    getStorage()?.setItem(FAVORITES_KEY, JSON.stringify(nextFavorites));
+  } catch (error) {
+    console.error('Error guardando favoritos:', error);
+  }
+
+  return nextFavorites;
 }

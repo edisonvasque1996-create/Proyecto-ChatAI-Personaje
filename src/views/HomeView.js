@@ -1,8 +1,36 @@
 // src/views/HomeView.js
 import { CHARACTERS } from '../utils/constans.js';
-import { saveSelectedCharacter } from '../services/storageServices.js';
+import {
+  loadFavoriteCharacters,
+  saveSelectedCharacter,
+  toggleFavoriteCharacter
+} from '../services/storageServices.js';
 
 export function renderHomeView(container, navigateTo) {
+  let favorites = loadFavoriteCharacters();
+  let selectedFilter = 'all';
+
+  function renderCharacters() {
+    const characters = Object.values(CHARACTERS).filter(character => (
+      selectedFilter === 'all' || favorites.includes(character.id)
+    ));
+
+    container.querySelector('.character-grid').innerHTML = characters.length
+      ? characters.map(character => `
+          <article class="character-card" data-id="${character.id}" style="border-top-color: ${character.themeColor};">
+            <button class="favorite-btn ${favorites.includes(character.id) ? 'is-favorite' : ''}" data-favorite="${character.id}" aria-label="${favorites.includes(character.id) ? 'Quitar de favoritos' : 'Agregar a favoritos'}" aria-pressed="${favorites.includes(character.id)}">★</button>
+            <div class="char-avatar">
+              <img src="${character.avatar}" alt="${character.name}" loading="lazy">
+            </div>
+            <h3>${character.name}</h3>
+            <span class="char-title">${character.title}</span>
+            <p>${character.description}</p>
+            <button class="btn-select-char" data-id="${character.id}">Chatear con ${character.name.split(' ')[0]}</button>
+          </article>
+        `).join('')
+      : '<p class="empty-state">Aún no tienes personajes favoritos.</p>';
+  }
+
   container.innerHTML = `
     <div class="view-container home-view">
       <div class="hero-section">
@@ -11,30 +39,44 @@ export function renderHomeView(container, navigateTo) {
       </div>
 
       <div class="character-selection-section">
-        <h2>Elige a tu personaje para comenzar:</h2>
+        <div class="section-heading">
+          <h2>Elige a tu personaje</h2>
+          <div class="filter-tabs" role="group" aria-label="Filtrar personajes">
+            <button class="filter-tab is-active" data-filter="all">Todos</button>
+            <button class="filter-tab" data-filter="favorites">★ Favoritos</button>
+          </div>
+        </div>
         <div class="character-grid">
-          ${Object.values(CHARACTERS).map(char => `
-            <div class="character-card" data-id="${char.id}" style="border-top: 4px solid ${char.themeColor};">
-              <div class="char-avatar">
-                <img src="${char.avatar}" alt="${char.name}" loading="lazy">
-              </div>
-              <h3>${char.name}</h3>
-              <span class="char-title">${char.title}</span>
-              <p>${char.description}</p>
-              <button class="btn-select-char" data-id="${char.id}">Chatear con ${char.name.split(' ')[0]}</button>
-            </div>
-          `).join('')}
+          <!-- El contenido se dibuja después de crear los filtros para compartir su estado. -->
         </div>
       </div>
     </div>
   `;
 
-  // Estilos específicos de la vista home inyectados dinámicamente o gestionados en CSS
-  container.querySelectorAll('.btn-select-char').forEach(button => {
-    button.addEventListener('click', (e) => {
-      const charId = e.target.getAttribute('data-id');
-      saveSelectedCharacter(charId);
+  renderCharacters();
+
+  container.addEventListener('click', (event) => {
+    const favoriteButton = event.target.closest('[data-favorite]');
+    if (favoriteButton) {
+      favorites = toggleFavoriteCharacter(favoriteButton.dataset.favorite);
+      renderCharacters();
+      return;
+    }
+
+    const filterButton = event.target.closest('[data-filter]');
+    if (filterButton) {
+      selectedFilter = filterButton.dataset.filter;
+      container.querySelectorAll('[data-filter]').forEach(button => {
+        button.classList.toggle('is-active', button.dataset.filter === selectedFilter);
+      });
+      renderCharacters();
+      return;
+    }
+
+    const selectButton = event.target.closest('.btn-select-char');
+    if (selectButton) {
+      saveSelectedCharacter(selectButton.dataset.id);
       navigateTo('/chat');
-    });
+    }
   });
 }

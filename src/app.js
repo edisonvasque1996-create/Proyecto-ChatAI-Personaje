@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHomeView(appContainer, navigateTo);
         break;
       case ROUTES.CHAT:
-        renderChatView(appContainer);
+        renderChatView(appContainer, navigateTo);
         break;
       case ROUTES.ABOUT:
         renderAboutView(appContainer);

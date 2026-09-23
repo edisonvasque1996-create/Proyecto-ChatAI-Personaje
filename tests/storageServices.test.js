@@ -4,7 +4,9 @@ import {
   loadChatHistory,
   saveChatHistory,
   loadSelectedCharacter,
-  saveSelectedCharacter
+  saveSelectedCharacter,
+  loadFavoriteCharacters,
+  toggleFavoriteCharacter
 } from '../src/services/storageServices.js';
 
 function createStorage() {
@@ -48,5 +50,13 @@ describe('storageServices', () => {
     expect(loadChatHistory('luffy')).toHaveLength(1);
     clearChatHistory('luffy');
     expect(loadChatHistory('luffy')).toEqual([]);
+  });
+
+  it('persiste favoritos y permite quitarlos', () => {
+    expect(toggleFavoriteCharacter('zoro')).toEqual(['zoro']);
+    expect(loadFavoriteCharacters()).toEqual(['zoro']);
+
+    expect(toggleFavoriteCharacter('zoro')).toEqual([]);
+    expect(loadFavoriteCharacters()).toEqual([]);
   });
 });

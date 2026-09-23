@@ -4,7 +4,7 @@ import { sendChatMessage } from '../services/apiServices.js';
 import { loadChatHistory, saveChatHistory, clearChatHistory, loadSelectedCharacter } from '../services/storageServices.js';
 import { getCurrentTimestamp, escapeHTML } from '../utils/formatters.js';
 
-export function renderChatView(container) {
+export function renderChatView(container, navigateTo) {
   const activeCharId = loadSelectedCharacter();
   const character = CHARACTERS[activeCharId] || CHARACTERS.luffy;
   let history = loadChatHistory(activeCharId);
@@ -12,6 +12,7 @@ export function renderChatView(container) {
   container.innerHTML = `
     <div class="view-container chat-view">
       <div class="chat-header">
+        <button id="back-home-btn" class="icon-btn" title="Elegir otro personaje" aria-label="Elegir otro personaje">←</button>
         <div class="chat-char-info">
           <span class="char-avatar-sm">
             <img src="${character.avatar}" alt="${character.name}">
@@ -22,6 +23,7 @@ export function renderChatView(container) {
           </div>
         </div>
         <div class="chat-actions">
+          <button id="cancel-request-btn" class="btn-secondary hidden" type="button">Detener</button>
           <button id="clear-history-btn" class="btn-secondary" title="Borrar historial">🗑️ Limpiar Chat</button>
         </div>
       </div>
@@ -44,13 +46,13 @@ export function renderChatView(container) {
         `).join('')}
       </div>
 
-      <div id="typing-indicator" class="typing-indicator hidden">
-        <span></span><span></span><span></span> ${character.name} está escribiendo...
+      <div id="typing-indicator" class="typing-indicator hidden" role="status" aria-live="polite">
+        <span class="typing-label">${character.name} está escribiendo</span><span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
       </div>
 
       <form id="chat-form" class="chat-input-form">
         <input type="text" id="chat-input" placeholder="Escribe un mensaje a ${character.name}..." autocomplete="off" required />
-        <button type="submit" id="send-btn">Enviar 🚀</button>
+        <button type="submit" id="send-btn" aria-label="Enviar mensaje"><span>Enviar</span><span aria-hidden="true">➤</span></button>
       </form>
     </div>
   `;
@@ -61,7 +63,11 @@ export function renderChatView(container) {
   const typingIndicator = container.querySelector('#typing-indicator');
   const clearBtn = container.querySelector('#clear-history-btn');
   const sendBtn = container.querySelector('#send-btn');
+  const backHomeBtn = container.querySelector('#back-home-btn');
+  const cancelRequestBtn = container.querySelector('#cancel-request-btn');
   let requestController = null;
+
+  backHomeBtn.addEventListener('click', () => navigateTo?.('/home'));
 
   // Scroll automático al fondo
   function scrollToBottom() {
@@ -88,9 +94,11 @@ export function renderChatView(container) {
     if (confirm(`¿Estas seguro de borrar la conversación con ${character.name}?`)) {
       requestController?.abort();
       clearChatHistory(activeCharId);
-      renderChatView(container);
+      renderChatView(container, navigateTo);
     }
   });
+
+  cancelRequestBtn.addEventListener('click', () => requestController?.abort());
 
   // Enviar mensaje
   chatForm.addEventListener('submit', async (e) => {
@@ -117,6 +125,7 @@ export function renderChatView(container) {
     chatInput.disabled = true;
     sendBtn.disabled = true;
     requestController = new AbortController();
+    cancelRequestBtn.classList.remove('hidden');
     scrollToBottom();
 
     // Mostrar indicador de escritura
@@ -149,18 +158,19 @@ export function renderChatView(container) {
 
       scrollToBottom();
     } catch (error) {
-      if (error.name === 'AbortError') return;
       typingIndicator.classList.add('hidden');
+      if (error.name === 'AbortError') return;
       messagesContainer.innerHTML += `
         <div class="message error-msg">
           <div class="msg-content">
-            <p>⚠️ Error: No se pudo conectar con el servidor de IA. Inténtalo de nuevo.</p>
+            <p>⚠️ No pude responder ahora. Revisa tu conexión o la configuración de Gemini e inténtalo de nuevo.</p>
           </div>
         </div>
       `;
       scrollToBottom();
     } finally {
       requestController = null;
+      cancelRequestBtn.classList.add('hidden');
       chatInput.disabled = false;
       sendBtn.disabled = false;
       chatInput.focus();
