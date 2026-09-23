@@ -43,9 +43,11 @@
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Navbar Estilo App */
@@ -113,6 +115,8 @@ main#app {
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .view-container {
@@ -120,6 +124,7 @@ main#app {
   flex-direction: column;
   flex: 1;
   width: 100%;
+  min-height: 0;
 }
 
 /* --- HOME VIEW / GALERÍA DE PERSONAJES --- */
@@ -283,10 +288,12 @@ main#app {
 
 /* --- CHAT VIEW (ESTILO WHATSAPP) --- */
 .chat-view {
-  height: calc(100dvh - 60px);
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-color);
+  overflow: hidden;
 }
 
 .chat-header {
@@ -297,6 +304,7 @@ main#app {
   align-items: center;
   border-bottom: 1px solid var(--border-color);
   gap: 0.6rem;
+  flex: 0 0 auto;
 }
 
 .icon-btn {
@@ -356,61 +364,87 @@ main#app {
 /* Contenedor de mensajes */
 .chat-messages-container {
   flex: 1;
-  padding: 1rem;
+  min-height: 0;
+  padding: 1.25rem 1rem;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  background-color: var(--bg-color);
 }
 
-/* Burbujas de mensajes tipo WhatsApp */
+/* Cada mensaje ocupa su propia fila y queda alineado según quién lo envía. */
 .message {
   display: flex;
-  max-width: 80%;
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 0.2rem;
   animation: fadeIn 0.2s ease;
 }
 
 .user-msg {
   align-self: flex-end;
+  justify-content: flex-end;
 }
 
 .bot-msg, .welcome-message-bubble {
   align-self: flex-start;
 }
 
-.msg-content {
-  padding: 0.5rem 0.75rem;
-  border-radius: 7.5px;
+.bot-msg {
+  justify-content: flex-start;
+}
+
+.msg-content,
+.welcome-message-bubble {
+  max-width: min(78%, 620px);
+  padding: 0.65rem 0.8rem 0.45rem;
+  border-radius: 1.1rem;
   position: relative;
-  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-  font-size: 0.92rem;
-  line-height: 1.4;
-  word-break: break-word;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.14);
+  font-size: 0.94rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.msg-content p,
+.welcome-message-bubble p {
+  white-space: pre-wrap;
 }
 
 .user-msg .msg-content {
   background-color: var(--user-msg-bg);
   color: var(--user-msg-text);
-  border-top-right-radius: 0;
+  border-bottom-right-radius: 0.35rem;
 }
 
-.bot-msg .msg-content, .welcome-message-bubble {
+.bot-msg .msg-content,
+.welcome-message-bubble {
   background-color: var(--bot-msg-bg);
   color: var(--bot-msg-text);
-  border-top-left-radius: 0;
+  border-bottom-left-radius: 0.35rem;
+}
+
+.welcome-message-bubble {
+  align-self: flex-start;
+  margin-bottom: 0.2rem;
 }
 
 .msg-footer {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 0.35rem;
+  min-height: 0.9rem;
+  margin-top: 0.2rem;
 }
 
 .msg-time {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   opacity: 0.6;
+  line-height: 1;
 }
 
 .btn-copy {
@@ -426,6 +460,17 @@ main#app {
   opacity: 1;
 }
 
+.error-msg .msg-content {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-bottom-left-radius: 0.35rem;
+}
+
+[data-theme="dark"] .error-msg .msg-content {
+  background-color: #451a1a;
+  color: #fecaca;
+}
+
 /* Indicador de escribiendo */
 .typing-indicator {
   padding: 0.5rem 1rem;
@@ -435,6 +480,7 @@ main#app {
   align-items: center;
   gap: 4px;
   min-height: 2.1rem;
+  flex: 0 0 auto;
 }
 
 .typing-label {
@@ -474,6 +520,7 @@ main#app {
   gap: 0.5rem;
   align-items: center;
   border-top: 1px solid var(--border-color);
+  flex: 0 0 auto;
 }
 
 .chat-input-form input {
@@ -551,7 +598,8 @@ main#app {
   }
 
   .chat-view {
-    height: 80vh;
+    height: 100%;
+    min-height: 0;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     overflow: hidden;
