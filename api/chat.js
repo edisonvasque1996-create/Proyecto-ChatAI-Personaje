@@ -1,56 +1,74 @@
-import { GoogleGenAI } from '@google/genai';
-
+// api/chat.js
 export default async function handler(req, res) {
-    // Solo permitir solicitudes POST
-    if (req.method !== 'POST') {
-        res.setHeader('Allow', ['POST']);
-        return res.status(405).json({ error: `Método ${req.method} no permitido` });
+  // Solo permitimos peticiones POST
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).json({ error: `Método ${req.method} no permitido` });
+  }
+
+  const { message, systemPrompt, history = [] } = req.body || {};
+
+  if (typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'El mensaje es obligatorio' });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Configuración del servidor incompleta (API Key ausente)' });
+  }
+
+  try {
+    // Transformamos el historial al formato que espera la API de Gemini (Google Generative Language)
+    // role: 'user' o 'model'
+    const validHistory = Array.isArray(history)
+      ? history.filter(item => item && typeof item.content === 'string').slice(-20)
+      : [];
+
+    const contents = [
+      ...validHistory.map(item => ({
+        role: item.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: item.content }]
+      })),
+      {
+        role: 'user',
+        parts: [{ text: message }]
+      }
+    ];
+
+    // Endpoint oficial de Google Gemini (modelo gemini-1.5-flash o gemini-pro)
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const payload = {
+      contents,
+      systemInstruction: {
+        parts: [{ text: systemPrompt || "Eres un asistente útil." }]
+      },
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500,
+      }
+    };
+
+    const response = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Error al comunicarse con la API de Gemini');
     }
 
-    try {
-        const { message, history, systemPrompt } = req.body;
+    const data = await response.json();
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No se pudo obtener una respuesta.";
 
-        if (!message) {
-            return res.status(400).json({ error: 'El mensaje es requerido.' });
-        }
+    return res.status(200).json({ reply });
 
-        // Obtener la API Key desde las variables de entorno del servidor de Vercel
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            return res.status(500).json({ error: 'La API Key de Gemini no está configurada en el servidor.' });
-        }
-
-        // Inicializar el SDK oficial de Google Gen AI
-        const ai = new GoogleGenAI({ apiKey });
-
-        // Preparar el historial de chat en el formato que espera el SDK de Gemini
-        // El SDK espera un array de objetos con role ('user' o 'model') y parts
-        const formattedHistory = (history || []).map(msg => ({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }]
-        }));
-
-        // Crear la sesión de chat con el System Instruction (personalidad del personaje)
-        const chat = ai.chats.create({
-            model: 'gemini-2.5-flash', // Modelo rápido y eficiente para chat
-            config: {
-                systemInstruction: systemPrompt || 'Eres un asistente útil y amigable.',
-                temperature: 0.7,
-            },
-            history: formattedHistory
-        });
-
-        // Enviar el nuevo mensaje del usuario al modelo
-        const result = await chat.sendMessage({ message });
-        const responseText = result.text;
-
-        return res.status(200).json({ reply: responseText });
-
-    } catch (error) {
-        console.error('Error en Vercel Function /api/chat:', error);
-        return res.status(500).json({ 
-            error: 'Error al procesar la solicitud con Gemini AI.',
-            details: error.message 
-        });
-    }
+  } catch (error) {
+    console.error('Error en Serverless Function:', error);
+    return res.status(500).json({ error: error.message || 'Error interno del servidor' });
+  }
 }
