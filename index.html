@@ -1,36 +1,26 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chat Universe - Gemini SPA</title>
-    <link rel="stylesheet" href="./styles/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>One Piece AI Chatbot - SPA</title>
+  <link rel="stylesheet" href="./styles/styles.css">
 </head>
 <body>
-    <!-- Navegación Principal (Mobile-First / Responsive) -->
-    <header class="navbar">
-        <div class="nav-brand">
-            <span class="brand-icon">🤖</span>
-            <h1>AI Universe</h1>
-        </div>
-        <nav class="nav-links">
-            <a href="/home" data-link class="nav-item">Inicio</a>
-            <a href="/gallery" data-link class="nav-item">Personajes</a>
-            <a href="/chat" data-link class="nav-item">Chat</a>
-            <a href="/about" data-link class="nav-item">Acerca de</a>
-        </nav>
-        <div class="nav-actions">
-            <!-- Botón Modo Oscuro/Claro (Extra Credit) -->
-            <button id="theme-toggle" class="btn-icon" aria-label="Cambiar tema">🌙</button>
-        </div>
-    </header>
+  <header>
+    <a href="/home" class="nav-brand" data-link>🏴‍☠️ One Piece AI</a>
+    <nav class="nav-links">
+      <a href="/home" class="nav-link" data-link>Inicio</a>
+      <a href="/chat" class="nav-link" data-link>Chat</a>
+      <a href="/about" class="nav-link" data-link>Acerca de</a>
+      <button id="theme-toggle" class="theme-toggle" title="Cambiar tema">🌙</button>
+    </nav>
+  </header>
 
-    <!-- Contenedor Dinámico para las Vistas de la SPA -->
-    <main id="app-root" class="main-container">
-        <!-- Las vistas se inyectarán aquí dinámicamente -->
-    </main>
+  <main id="app">
+    <!-- Las vistas de la SPA se renderizan dinámicamente aquí -->
+  </main>
 
-    <!-- Script de entrada principal -->
-    <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

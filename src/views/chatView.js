@@ -1,180 +1,162 @@
-import { getActiveCharacter } from '../services/characters.js';
+// src/views/ChatView.js
+import { CHARACTERS } from '../utils/constants.js';
+import { sendChatMessage } from '../services/apiService.js';
+import { loadChatHistory, saveChatHistory, clearChatHistory, loadSelectedCharacter } from '../services/storageService.js';
+import { getCurrentTimestamp, escapeHTML } from '../utils/formatters.js';
 
-// Estado local del historial de sesión actual
-let currentSessionHistory = [];
+export function renderChatView(container) {
+  const activeCharId = loadSelectedCharacter();
+  const character = CHARACTERS[activeCharId] || CHARACTERS.luffy;
+  let history = loadChatHistory(activeCharId);
 
-export function renderChatView(container, navigateTo) {
-    const activeChar = getActiveCharacter();
+  container.innerHTML = `
+    <div class="view-container chat-view">
+      <div class="chat-header">
+        <div class="chat-char-info">
+          <span class="char-avatar-sm">
+            <img src="${character.avatar}" alt="${character.name}">
+          </span>
+          <div>
+            <h2>${character.name}</h2>
+            <span class="status-indicator">● En línea</span>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <button id="clear-history-btn" class="btn-secondary" title="Borrar historial">🗑️ Limpiar Chat</button>
+        </div>
+      </div>
 
-    container.innerHTML = `
-        <section class="chat-section">
-            <!-- Cabecera del chat con el personaje activo -->
-            <div class="chat-header">
-                <div class="chat-character-meta">
-                    <span class="chat-avatar-sm">${activeChar.avatar}</span>
-                    <div>
-                        <h2>${activeChar.name}</h2>
-                        <span class="chat-status"><span class="status-dot"></span> En línea</span>
-                    </div>
-                </div>
-                <button id="switch-char-btn" class="btn-secondary-sm">Cambiar Personaje</button>
+      <div id="chat-messages" class="chat-messages-container">
+        ${history.length === 0 ? `
+          <div class="welcome-message-bubble">
+            <p>¡Hola! Soy <strong>${character.name}</strong>.${character.description}</p>
+            <span class="msg-time">${getCurrentTimestamp()}</span>
+          </div>
+        ` : history.map(msg => `
+          <div class="message ${msg.role === 'user' ? 'user-msg' : 'bot-msg'}">
+            <div class="msg-content">
+              <p>${escapeHTML(msg.content)}</p>
+              <div class="msg-footer">
+                <span class="msg-time">${msg.timestamp || getCurrentTimestamp()}</span>${msg.role !== 'user' ? `<button class="btn-copy" data-text="${escapeHTML(msg.content)}" title="Copiar respuesta">📋</button>` : ''}
+              </div>
             </div>
+          </div>
+        `).join('')}
+      </div>
 
-            <!-- Contenedor de Mensajes -->
-            <div id="chat-messages" class="chat-messages">
-                ${currentSessionHistory.length === 0 ? `
-                    <div class="chat-welcome-banner">
-                        <div class="welcome-avatar">${activeChar.avatar}</div>
-                        <h3>¡Hola! Soy ${activeChar.name}</h3>
-                        <p>${activeChar.description}</p>
-                        <span class="welcome-hint">Escribe un mensaje abajo para comenzar la conversación.</span>
-                    </div>
-                ` : renderMessages()}
-            </div>
+      <div id="typing-indicator" class="typing-indicator hidden">
+        <span></span><span></span><span></span> ${character.name} está escribiendo...
+      </div>
 
-            <!-- Indicador de "Escribiendo..." (Oculto por defecto) -->
-            <div id="typing-indicator" class="typing-indicator hidden">
-                <span class="typing-avatar">${activeChar.avatar}</span>
-                <div class="typing-bubble">
-                    <span class="dot"></span>
-                    <span class="dot"></span>
-                    <span class="dot"></span>
-                </div>
-            </div>
+      <form id="chat-form" class="chat-input-form">
+        <input type="text" id="chat-input" placeholder="Escribe un mensaje a ${character.name}..." autocomplete="off" required />
+        <button type="submit" id="send-btn">Enviar 🚀</button>
+      </form>
+    </div>
+  `;
 
-            <!-- Formulario de Entrada de Mensaje -->
-            <form id="chat-form" class="chat-form">
-                <input 
-                    type="text" 
-                    id="chat-input" 
-                    placeholder="Escribe tu mensaje a ${activeChar.name}..." 
-                    autocomplete="off"
-                    required
-                >
-                <button type="submit" id="send-btn" class="btn-send" aria-label="Enviar mensaje">
-                    ➤
-                </button>
-            </form>
-        </section>
+  const messagesContainer = container.querySelector('#chat-messages');
+  const chatForm = container.querySelector('#chat-form');
+  const chatInput = container.querySelector('#chat-input');
+  const typingIndicator = container.querySelector('#typing-indicator');
+  const clearBtn = container.querySelector('#clear-history-btn');
+  const sendBtn = container.querySelector('#send-btn');
+
+  // Scroll automático al fondo
+  function scrollToBottom() {
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+  scrollToBottom();
+
+  // Un único listener también cubre botones añadidos después de enviar mensajes.
+  messagesContainer.addEventListener('click', async (e) => {
+    const button = e.target.closest('.btn-copy');
+    if (!button) return;
+
+    try {
+      await navigator.clipboard.writeText(button.dataset.text || '');
+      button.textContent = '✅';
+      setTimeout(() => button.textContent = '📋', 1500);
+    } catch (error) {
+      console.error('No se pudo copiar el mensaje:', error);
+    }
+  });
+
+  // Limpiar historial
+  clearBtn.addEventListener('click', () => {
+    if (confirm(`¿Estas seguro de borrar la conversación con ${character.name}?`)) {
+      clearChatHistory(activeCharId);
+      renderChatView(container);
+    }
+  });
+
+  // Enviar mensaje
+  chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const userText = chatInput.value.trim();
+    if (!userText) return;
+
+    const timestamp = getCurrentTimestamp();
+
+    // Agregar mensaje del usuario
+    history.push({ role: 'user', content: userText, timestamp });
+    saveChatHistory(activeCharId, history);
+
+    messagesContainer.innerHTML += `
+      <div class="message user-msg">
+        <div class="msg-content">
+          <p>${escapeHTML(userText)}</p>
+          <div class="msg-footer"><span class="msg-time">${timestamp}</span></div>
+        </div>
+      </div>
     `;
 
-    const chatMessagesEl = container.querySelector('#chat-messages');
-    const chatFormEl = container.querySelector('#chat-form');
-    const chatInputEl = container.querySelector('#chat-input');
-    const typingIndicatorEl = container.querySelector('#typing-indicator');
-    const switchCharBtn = container.querySelector('#switch-char-btn');
+    chatInput.value = '';
+    chatInput.disabled = true;
+    sendBtn.disabled = true;
+    scrollToBottom();
 
-    // Botón para volver a la galería y cambiar de personaje
-    switchCharBtn.addEventListener('click', () => {
-        window.history.pushState({}, '', '/gallery');
-        window.dispatchEvent(new PopStateEvent('popstate'));
-    });
+    // Mostrar indicador de escritura
+    typingIndicator.classList.remove('hidden');
+    scrollToBottom();
 
-    // Scroll automático al fondo al iniciar la vista
-    scrollToBottom(chatMessagesEl);
+    try {
+      // Llamada a la API mediante apiService
+      const botReply = await sendChatMessage(userText, character.systemPrompt, history.slice(0, -1));
+      const botTimestamp = getCurrentTimestamp();
 
-    // Manejar envío de mensajes
-    chatFormEl.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const text = chatInputEl.value.trim();
-        if (!text) return;
+      history.push({ role: 'assistant', content: botReply, timestamp: botTimestamp });
+      saveChatHistory(activeCharId, history);
 
-        const timestamp = getFormattedTime();
+      typingIndicator.classList.add('hidden');
 
-        // 1. Agregar mensaje del usuario al historial local
-        const userMsg = { role: 'user', content: text, timestamp };
-        currentSessionHistory.push(userMsg);
-        
-        // Limpiar input y re-renderizar mensajes
-        chatInputEl.value = '';
-        updateMessagesUI(chatMessagesEl);
-        scrollToBottom(chatMessagesEl);
-
-        // 2. Mostrar indicador de "escribiendo..."
-        typingIndicatorEl.classList.remove('hidden');
-        scrollToBottom(chatMessagesEl);
-
-        try {
-            // Simulamos respuesta temporal o conectaremos en la Fase 4 con la Vercel Function
-            // En la fase 4 reemplazaremos esto por la petición real fetch('/api/chat', ...)
-            const aiReplyText = await simulateAIResponse(activeChar, text, currentSessionHistory);
-            
-            const aiTimestamp = getFormattedTime();
-            currentSessionHistory.push({ role: 'assistant', content: aiReplyText, timestamp: aiTimestamp });
-        } catch (error) {
-            currentSessionHistory.push({ 
-                role: 'assistant', 
-                content: '⚠️ Lo siento, ha ocurrido un error al conectar con mis pensamientos.', 
-                timestamp: getFormattedTime() 
-            });
-        } finally {
-            // Ocultar indicador y actualizar UI
-            typingIndicatorEl.classList.add('hidden');
-            updateMessagesUI(chatMessagesEl);
-            scrollToBottom(chatMessagesEl);
-        }
-    });
-
-    // Permitir copiar respuestas al portapapeles
-    chatMessagesEl.addEventListener('click', (e) => {
-        const copyBtn = e.target.closest('.copy-btn');
-        if (copyBtn) {
-            const content = copyBtn.getAttribute('data-content');
-            navigator.clipboard.writeText(content).then(() => {
-                copyBtn.textContent = '¡Copiado!';
-                setTimeout(() => { copyBtn.textContent = '📋 Copiar'; }, 2000);
-            });
-        }
-    });
-}
-
-function renderMessages() {
-    return currentSessionHistory.map(msg => `
-        <div class="message ${msg.role === 'user' ? 'user-message' : 'assistant-message'}">
-            <div class="message-content">
-                <p>${escapeHTML(msg.content)}</p>
-                <div class="message-footer">
-                    <span class="message-time">${msg.timestamp}</span>
-                    ${msg.role === 'assistant' ? `<button class="copy-btn" data-content="${escapeAttr(msg.content)}">📋 Copiar</button>` : ''}
-                </div>
+      messagesContainer.innerHTML += `
+        <div class="message bot-msg">
+          <div class="msg-content">
+            <p>${escapeHTML(botReply)}</p>
+            <div class="msg-footer">
+              <span class="msg-time">${botTimestamp}</span>
+              <button class="btn-copy" data-text="${escapeHTML(botReply)}">📋</button>
             </div>
+          </div>
         </div>
-    `).join('');
-}
+      `;
 
-function updateMessagesUI(container) {
-    const activeChar = getActiveCharacter();
-    container.innerHTML = currentSessionHistory.length === 0 ? `
-        <div class="chat-welcome-banner">
-            <div class="welcome-avatar">${activeChar.avatar}</div>
-            <h3>¡Hola! Soy ${activeChar.name}</h3>
-            <p>${activeChar.description}</p>
-            <span class="welcome-hint">Escribe un mensaje abajo para comenzar la conversación.</span>
+      scrollToBottom();
+    } catch (error) {
+      typingIndicator.classList.add('hidden');
+      messagesContainer.innerHTML += `
+        <div class="message error-msg">
+          <div class="msg-content">
+            <p>⚠️ Error: No se pudo conectar con el servidor de IA. Inténtalo de nuevo.</p>
+          </div>
         </div>
-    ` : renderMessages();
-}
-
-function scrollToBottom(container) {
-    container.scrollTop = container.scrollHeight;
-}
-
-function getFormattedTime() {
-    const now = new Date();
-    return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function escapeHTML(str) {
-    return str.replace(/[&<>'"]/g, 
-        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-    );
-}
-
-function escapeAttr(str) {
-    return str.replace(/"/g, '&quot;');
-}
-
-// Función temporal de simulación (será reemplazada en la Fase 4 por la API real de Gemini)
-async function simulateAIResponse(character, userText) {
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simula retraso de red
-    return `[Modo Simulación] Entendido tu mensaje: "${userText}". Pronto me conectaré a Google Gemini usando tu Vercel Function con mi personalidad de ${character.name}.`;
+      `;
+      scrollToBottom();
+    } finally {
+      chatInput.disabled = false;
+      sendBtn.disabled = false;
+      chatInput.focus();
+    }
+  });
 }
