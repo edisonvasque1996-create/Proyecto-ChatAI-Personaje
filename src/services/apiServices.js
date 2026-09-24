@@ -30,6 +30,15 @@ export async function sendChatMessage(message, systemPrompt, history = [], optio
       data = {};
     }
 
+    if (response.status === 429) {
+      const retryAfter = Number(data.retryAfter || response.headers.get('Retry-After'));
+      const error = new Error(data.error || 'Has alcanzado el límite gratuito. Intenta nuevamente más tarde.');
+      error.code = 'RATE_LIMITED';
+      error.status = 429;
+      error.retryAfter = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null;
+      throw error;
+    }
+
     if (!response.ok) {
       throw new Error(data.error || 'Error al conectar con el servidor de IA.');
     }

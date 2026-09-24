@@ -23,6 +23,7 @@ La suite valida formatters, persistencia por personaje, favoritos y respuestas d
 3. En Vercel, crea `GEMINI_API_KEY` en Project Settings > Environment Variables y vuelve a desplegar.
 
 La clave solo se lee en `api/chat.js`; nunca se envia al navegador.
+El modelo predeterminado es `gemini-3.5-flash-lite`, pensado para usar la cuota gratuita, y puede cambiarse con `GEMINI_MODEL`.
 
 ## SPA y despliegue
 

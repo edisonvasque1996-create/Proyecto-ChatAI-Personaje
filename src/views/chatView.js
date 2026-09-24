@@ -66,8 +66,12 @@ export function renderChatView(container, navigateTo) {
   const backHomeBtn = container.querySelector('#back-home-btn');
   const cancelRequestBtn = container.querySelector('#cancel-request-btn');
   let requestController = null;
+  let isRequestActive = false;
 
-  backHomeBtn.addEventListener('click', () => navigateTo?.('/home'));
+  backHomeBtn.addEventListener('click', () => {
+    requestController?.abort();
+    navigateTo?.('/home');
+  });
 
   // Scroll automático al fondo
   function scrollToBottom() {
@@ -103,6 +107,8 @@ export function renderChatView(container, navigateTo) {
   // Enviar mensaje
   chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (isRequestActive) return;
+
     const userText = chatInput.value.trim();
     if (!userText) return;
 
@@ -124,7 +130,9 @@ export function renderChatView(container, navigateTo) {
     chatInput.value = '';
     chatInput.disabled = true;
     sendBtn.disabled = true;
-    requestController = new AbortController();
+    isRequestActive = true;
+    const activeController = new AbortController();
+    requestController = activeController;
     cancelRequestBtn.classList.remove('hidden');
     scrollToBottom();
 
@@ -135,7 +143,7 @@ export function renderChatView(container, navigateTo) {
     try {
       // Llamada a la API mediante apiService
       const botReply = await sendChatMessage(userText, character.systemPrompt, history.slice(0, -1), {
-        signal: requestController.signal
+        signal: activeController.signal
       });
       const botTimestamp = getCurrentTimestamp();
 
@@ -160,20 +168,26 @@ export function renderChatView(container, navigateTo) {
     } catch (error) {
       typingIndicator.classList.add('hidden');
       if (error.name === 'AbortError') return;
+      const errorMessage = error.code === 'RATE_LIMITED'
+        ? error.message
+        : 'No pude responder ahora. Revisa tu conexión o la configuración de Gemini e inténtalo de nuevo.';
       messagesContainer.innerHTML += `
         <div class="message error-msg">
           <div class="msg-content">
-            <p>⚠️ No pude responder ahora. Revisa tu conexión o la configuración de Gemini e inténtalo de nuevo.</p>
+            <p>⚠️ ${escapeHTML(errorMessage)}</p>
           </div>
         </div>
       `;
       scrollToBottom();
     } finally {
-      requestController = null;
-      cancelRequestBtn.classList.add('hidden');
-      chatInput.disabled = false;
-      sendBtn.disabled = false;
-      chatInput.focus();
+      if (requestController === activeController) {
+        requestController = null;
+        isRequestActive = false;
+        cancelRequestBtn.classList.add('hidden');
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
+      }
     }
   });
 }

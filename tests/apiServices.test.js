@@ -41,4 +41,21 @@ describe('apiServices', () => {
       'El servidor no devolvió una respuesta válida.'
     );
   });
+
+  it('identifica el limite gratuito y conserva el tiempo de espera', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({
+        error: 'Has alcanzado el límite gratuito. Intenta nuevamente en 4 segundos.',
+        code: 'RATE_LIMITED',
+        retryAfter: 4
+      }),
+      { status: 429, headers: { 'Retry-After': '4' } }
+    ));
+
+    await expect(sendChatMessage('Hola', '')).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      status: 429,
+      retryAfter: 4
+    });
+  });
 });
