@@ -1,7 +1,8 @@
 // api/chat.js
-const MAX_MESSAGE_LENGTH = 4000;
+const MAX_MESSAGE_LENGTH = 2000;
 const MAX_SYSTEM_PROMPT_LENGTH = 4000;
-const MAX_HISTORY_ITEMS = 20;
+const MAX_HISTORY_ITEMS = 8;
+const MAX_HISTORY_MESSAGE_LENGTH = 1000;
 
 function getRetryAfterSeconds(response, errorData) {
   const retryAfterHeader = response.headers?.get?.('retry-after');
@@ -47,7 +48,7 @@ export default async function handler(req, res) {
           && typeof item.content === 'string'
           && item.content.trim().length > 0
         ))
-        .map(item => ({ role: item.role, content: item.content.trim().slice(0, MAX_MESSAGE_LENGTH) }))
+        .map(item => ({ role: item.role, content: item.content.trim().slice(0, MAX_HISTORY_MESSAGE_LENGTH) }))
         .slice(-MAX_HISTORY_ITEMS)
       : [];
 
@@ -76,7 +77,7 @@ export default async function handler(req, res) {
       },
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 200,
+        maxOutputTokens: 100,
       }
     };
 

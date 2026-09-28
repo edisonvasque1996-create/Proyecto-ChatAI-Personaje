@@ -34,18 +34,45 @@ describe('api/chat', () => {
     expect(options.headers['x-goog-api-key']).toBe('test-secret');
   });
 
-  it('rechaza mensajes que superan el límite antes de llamar a Gemini', async () => {
+  it('rechaza mensajes que superan los 2000 caracteres antes de llamar a Gemini', async () => {
     process.env.GEMINI_API_KEY = 'test-secret';
     globalThis.fetch = vi.fn();
     const response = createResponse();
 
     await handler({
       method: 'POST',
-      body: { message: 'a'.repeat(4001) }
+      body: { message: 'a'.repeat(2001) }
     }, response);
 
     expect(response.status).toHaveBeenCalledWith(413);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('limita el historial enviado a ocho mensajes de hasta 1000 caracteres', async () => {
+    process.env.GEMINI_API_KEY = 'test-secret';
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Respuesta' }] } }] }),
+      { status: 200 }
+    ));
+
+    await handler({
+      method: 'POST',
+      body: {
+        message: 'Hola',
+        history: Array.from({ length: 10 }, (_, index) => ({
+          role: index % 2 === 0 ? 'user' : 'assistant',
+          content: 'x'.repeat(1500)
+        }))
+      }
+    }, createResponse());
+
+    const [, options] = fetch.mock.calls[0];
+    const payload = JSON.parse(options.body);
+    const historySent = payload.contents.slice(0, -1);
+
+    expect(payload.contents).toHaveLength(9);
+    expect(historySent).toHaveLength(8);
+    expect(historySent.every(item => item.parts[0].text.length === 1000)).toBe(true);
   });
 
   it('conserva el 429 y comunica el tiempo de espera', async () => {
